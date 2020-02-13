@@ -10,6 +10,9 @@ if (NOT DEFINED QUBEENGINE_MASTER_PROJECT)
     endif()
 endif ()
 
+set(Vulkan_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ext/Vulkan-Headers/include)
+set(Vulkan_LIBRARY ${CMAKE_CURRENT_SOURCE_DIR}/bin/x64/vulkan-1.lib)
+
 # Disable building extras we won't need (pure C++ project)
 set(NANOGUI_BUILD_PYTHON    OFF CACHE BOOL " " FORCE)
 set(NANOGUI_INSTALL         OFF CACHE BOOL " " FORCE)
@@ -21,22 +24,17 @@ set(NANOGUI_BUILD_SHARED     ON CACHE BOOL " " FORCE)
 #    set(NANOGUI_BUILD_EXAMPLE  OFF CACHE BOOL " " FORCE)
 #else ()
     set(NANOGUI_ROOT ext/nanogui)
-    set(NANOGUI_BUILD_EXAMPLE OFF CACHE BOOL " " FORCE)
-    set(NANOGUI_VULKAN_BACKEND ON CACHE BOOL " " FORCE)
+    set(NANOGUI_BUILD_EXAMPLE ON)
+    set(NANOGUI_VULKAN_BACKEND ON)
 #endif ()
-
-set(Vulkan_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ext/vulkan/include)
 
 if (APPLE)
 elseif()
-    set(Vulkan_LIBRARY 
-        ${CMAKE_CURRENT_SOURCE_DIR}/bin/x64/vulkan-1.lib)
 endif()
-
-add_subdirectory(ext/glm)
-add_subdirectory(ext/spdlog)
 add_subdirectory(ext/Vulkan-Headers)
 add_subdirectory(${NANOGUI_ROOT})
+add_subdirectory(ext/glm)
+add_subdirectory(ext/spdlog)
 
 # For reliability of parallel build, make the NanoGUI targets dependencies
 set_property(TARGET glfw glfw_objects nanogui PROPERTY FOLDER "dependencies")
@@ -46,15 +44,17 @@ set(QUBEENGINE_DEFS
 
 set(QUBEENGINE_LIBS 
     nanogui
-    ${VULKAN_LIBRARY}
+    ${Vulkan_LIBRARY}
     ${NANOGUI_EXTRA_LIBS})
 
+message("VULKAN ${Vulkan_INCLUDE_DIR}")
+
 set(QUBEENGINE_INCS 
+    ${Vulkan_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/${NANOGUI_ROOT}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/glm/glm 
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/spdlog/include 
-    ${VULKAN_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/${NANOGUI_ROOT}/include
     ${NANOGUI_EXTRA_INCS})
 
 add_definitions(${QUBEENGINE_DEFS})
