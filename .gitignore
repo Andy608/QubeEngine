@@ -1,0 +1,11 @@
+#QubeEngine ignore file.
+
+.vs/*
+!.vs/CMakeSettings.json
+
+.idea/*
+Cmake-build-debug/*
+
+.DS_Store
+
+out
