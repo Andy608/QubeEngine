@@ -5,6 +5,8 @@ if (QUBEENGINE_BUILD_RUNNABLE)
         ${QUBEENGINE_SRC}/main/CommonMain.cpp
         ${QUBEENGINE_SRC}/main/QubeEngineMain.cpp
         ${QUBEENGINE_SRC}/main/Win32Main.cpp
+        
+        ${QUBEENGINE_SRC}/vulkan_tutorial/VulkanTutorial.cpp
     )
 else ()
     add_library(QubeEngine STATIC

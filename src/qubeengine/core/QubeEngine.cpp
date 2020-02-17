@@ -118,6 +118,8 @@ namespace qe
 			mIsInitialized = true;
 		}
 
+
+
 		return mIsInitialized;
 	}
 
