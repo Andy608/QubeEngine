@@ -15,18 +15,31 @@ namespace qe
 	public:
 		static const int WINDOW_WIDTH;
 		static const int WINDOW_HEIGHT;
+		static const bool ENABLE_VAL_LAYERS;
+
+		VulkanTutorial();
 
 		void run();
 
 	private:
 		GLFWwindow* mpWindow;
 		VkInstance mVulkanInstance;
+		VkDebugUtilsMessengerEXT mDebugMessenger;
+		const std::vector<const char*> mValidationLayers;
+
+		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+			VkDebugUtilsMessageTypeFlagsEXT messageType,
+			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+			void* pUserData);
 
 		void initWindow();
-		
 		void initVulkan();
 		void createInstance();
-		bool validateRequiredExtensions(const std::vector<VkExtensionProperties>& availableExtensions, const char** requiredExtensions, uint32 requiredExtensionCount);
+		void setupDebugMessenger();
+		bool validateRequiredExtensions(const std::vector<const char*>& requiredExtensions);
+		bool checkValidationLayerSupport();
+		std::vector<const char*> getRequiredExtensions();
 
 		void mainLoop();
 		void cleanup();

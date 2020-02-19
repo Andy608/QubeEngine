@@ -7,6 +7,28 @@ namespace qe
 	const int VulkanTutorial::WINDOW_WIDTH = 800;
 	const int VulkanTutorial::WINDOW_HEIGHT = 600;
 
+#ifdef NDEBUG
+	const bool VulkanTutorial::ENABLE_VAL_LAYERS = false;
+#else
+	const bool VulkanTutorial::ENABLE_VAL_LAYERS = true;
+#endif
+
+	VKAPI_ATTR VkBool32 VKAPI_CALL VulkanTutorial::debugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+		VkDebugUtilsMessageTypeFlagsEXT messageType,
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData)
+	{
+		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+		return VK_FALSE;
+	}
+
+	VulkanTutorial::VulkanTutorial() :
+		mpWindow(nullptr),
+		mVulkanInstance(nullptr),
+		mValidationLayers(std::vector<const char*> { "VK_LAYER_KHRONOS_validation" })
+	{}
+
 	void VulkanTutorial::run()
 	{
 		initWindow();
@@ -31,6 +53,11 @@ namespace qe
 
 	void VulkanTutorial::createInstance()
 	{
+		if (ENABLE_VAL_LAYERS && !checkValidationLayerSupport())
+			throw std::runtime_error("Validation layers requested, but are NOT available :(");
+		else
+			std::cout << "Validation layers requested are available!" << std::endl;
+
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Hello Vulkan";
@@ -43,68 +70,84 @@ namespace qe
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		uint32 glfwExtensionCount = 0;
-		const char** glfwRequiredExtensions;
-		glfwRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		std::vector<const char*> requiredExtensions = getRequiredExtensions();
+		createInfo.enabledExtensionCount = static_cast<uint32>(requiredExtensions.size());
+		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
-		createInfo.enabledExtensionCount = glfwExtensionCount;
-		createInfo.ppEnabledExtensionNames = glfwRequiredExtensions;
-		createInfo.enabledLayerCount = 0;
+		if (ENABLE_VAL_LAYERS)
+		{
+			createInfo.enabledLayerCount = static_cast<uint32>(mValidationLayers.size());
+			createInfo.ppEnabledLayerNames = mValidationLayers.data();
+		}
+		else
+		{
+			createInfo.enabledLayerCount = 0;
+			createInfo.pNext = nullptr;
+		}
+
+		if (ENABLE_VAL_LAYERS && !validateRequiredExtensions(requiredExtensions))
+			throw std::runtime_error("Failed to load requried glfw extensions.");
+		else
+			std::cout << "Successfully loaded required glfw extensions!" << std::endl;
+
 
 		VkResult result = vkCreateInstance(&createInfo, nullptr, &mVulkanInstance);
 
 		if (vkCreateInstance(&createInfo, nullptr, &mVulkanInstance) != VK_SUCCESS)
-		{
 			throw std::runtime_error("Failed to create vulkan instance.");
-		}
 		else
-		{
 			std::cout << "Successfully initialized Vulkan!" << std::endl;
-		}
+	}
 
+	void VulkanTutorial::setupDebugMessenger()
+	{
+		if (!ENABLE_VAL_LAYERS) return;
+
+		VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		createInfo.messageSeverity =
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+
+		createInfo.messageType =
+			VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+
+		createInfo.pfnUserCallback = debugCallback;
+		createInfo.pUserData = nullptr;
+	}
+
+	bool VulkanTutorial::validateRequiredExtensions(const std::vector<const char*>& requiredExtensions)
+	{
+		bool success = true;
 		uint32 extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
 
-		std::cout << "\nRequired glfw extensions:" << std::endl;
-		for (auto i = 0; i < glfwExtensionCount; ++i)
-		{
-			std::cout << "\t" << glfwRequiredExtensions[i] << std::endl;
-		}
+		std::cout << "\nRequired extensions:" << std::endl;
+		for (auto i = 0; i < requiredExtensions.size(); ++i)
+			std::cout << "\t" << requiredExtensions[i] << std::endl;
 
 		std::cout << "\nAvailable extensions:" << std::endl;
 		for (const auto& extension : availableExtensions)
-		{
 			std::cout << "\t" << extension.extensionName << std::endl;
-		}
 
-		if (!validateRequiredExtensions(availableExtensions, glfwRequiredExtensions, glfwExtensionCount))
+		for (const auto& requiredExtension : requiredExtensions)
 		{
-			throw std::runtime_error("Failed to load requried glfw extensions.");
-		}
-		else
-		{
-			std::cout << "Successfully loaded required glfw extensions!" << std::endl;
-		}
-	}
-
-	bool VulkanTutorial::validateRequiredExtensions(const std::vector<VkExtensionProperties>& availableExtensions, const char** requiredExtensions, uint32 requiredExtensionCount)
-	{
-		bool success = true;
-		for (auto i = 0; i < requiredExtensionCount; ++i)
-		{
-			bool isFound = false;
+			bool isExtentionFound = false;
 			for (const auto& loadedExtension : availableExtensions)
 			{
-				if (strcmp(requiredExtensions[i], loadedExtension.extensionName))
+				if (strcmp(requiredExtension, loadedExtension.extensionName) == 0)
 				{
-					isFound = true;
+					isExtentionFound = true;
+					break;
 				}
 			}
 
-			if (!isFound)
+			if (!isExtentionFound)
 			{
 				success = false;
 				break;
@@ -112,6 +155,53 @@ namespace qe
 		}
 
 		return success;
+	}
+
+	bool VulkanTutorial::checkValidationLayerSupport()
+	{
+		uint32 layerCount;
+		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+		std::vector<VkLayerProperties> availableLayers(layerCount);
+		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+		bool success = true;
+		for (const char* layerName : mValidationLayers)
+		{
+			bool isLayerFound = false;
+			for (const auto& layerProperties : availableLayers)
+			{
+				if (strcmp(layerName, layerProperties.layerName) == 0)
+				{
+					isLayerFound = true;
+					break;
+				}
+			}
+
+			if (!isLayerFound)
+			{
+				success = false;
+				break;
+			}
+		}
+
+		return success;
+	}
+
+	std::vector<const char*> VulkanTutorial::getRequiredExtensions()
+	{
+		uint32 glfwExtensionCount = 0;
+		const char** glfwExtensions;
+		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+		if (ENABLE_VAL_LAYERS)
+		{
+			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		}
+
+		return extensions;
 	}
 
 	void VulkanTutorial::mainLoop()
