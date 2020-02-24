@@ -13,6 +13,24 @@ namespace qe
 	const bool VulkanTutorial::ENABLE_VAL_LAYERS = true;
 #endif
 
+	VkResult VulkanTutorial::createDebugUtilsMessengerEXT(VkInstance instance,
+		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+		VkDebugUtilsMessengerEXT* pDebugMessenger)
+	{
+		PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+		if (func != nullptr)
+			return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+		else
+			return VK_ERROR_EXTENSION_NOT_PRESENT;
+	}
+
+	void VulkanTutorial::destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
+	{
+		PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (func != nullptr)
+			func(instance, debugMessenger, pAllocator);
+	}
+
 	VKAPI_ATTR VkBool32 VKAPI_CALL VulkanTutorial::debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -49,6 +67,7 @@ namespace qe
 	void VulkanTutorial::initVulkan()
 	{
 		createInstance();
+		setupDebugMessenger();
 	}
 
 	void VulkanTutorial::createInstance()
@@ -74,24 +93,26 @@ namespace qe
 		createInfo.enabledExtensionCount = static_cast<uint32>(requiredExtensions.size());
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
+		if (ENABLE_VAL_LAYERS && !validateRequiredExtensions(requiredExtensions))
+			throw std::runtime_error("Failed to load requried glfw extensions.");
+		else
+			std::cout << "Successfully loaded required glfw extensions!" << std::endl;
+
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+
 		if (ENABLE_VAL_LAYERS)
 		{
 			createInfo.enabledLayerCount = static_cast<uint32>(mValidationLayers.size());
 			createInfo.ppEnabledLayerNames = mValidationLayers.data();
+
+			populateDebugMessengerCreateInfo(debugCreateInfo);
+			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 		}
 		else
 		{
 			createInfo.enabledLayerCount = 0;
 			createInfo.pNext = nullptr;
 		}
-
-		if (ENABLE_VAL_LAYERS && !validateRequiredExtensions(requiredExtensions))
-			throw std::runtime_error("Failed to load requried glfw extensions.");
-		else
-			std::cout << "Successfully loaded required glfw extensions!" << std::endl;
-
-
-		VkResult result = vkCreateInstance(&createInfo, nullptr, &mVulkanInstance);
 
 		if (vkCreateInstance(&createInfo, nullptr, &mVulkanInstance) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create vulkan instance.");
@@ -103,7 +124,22 @@ namespace qe
 	{
 		if (!ENABLE_VAL_LAYERS) return;
 
-		VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+		VkDebugUtilsMessengerCreateInfoEXT createInfo;
+		populateDebugMessengerCreateInfo(createInfo);
+
+		if (createDebugUtilsMessengerEXT(mVulkanInstance, &createInfo, nullptr, &mDebugMessenger) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to set up debug messenger!");
+		}
+		else
+		{
+			std::cout << "Created DebugUtilsMessengerEXT" << std::endl;
+		}
+	}
+
+	void VulkanTutorial::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	{
+		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		createInfo.messageSeverity =
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
@@ -214,6 +250,9 @@ namespace qe
 
 	void VulkanTutorial::cleanup()
 	{
+		if (ENABLE_VAL_LAYERS)
+			destroyDebugUtilsMessengerEXT(mVulkanInstance, mDebugMessenger, nullptr);
+
 		vkDestroyInstance(mVulkanInstance, nullptr);
 		glfwDestroyWindow(mpWindow);
 		glfwTerminate();

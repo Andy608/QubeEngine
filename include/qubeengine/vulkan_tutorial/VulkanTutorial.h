@@ -17,6 +17,12 @@ namespace qe
 		static const int WINDOW_HEIGHT;
 		static const bool ENABLE_VAL_LAYERS;
 
+		static VkResult createDebugUtilsMessengerEXT(VkInstance instance,
+			const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+			VkDebugUtilsMessengerEXT* pDebugMessenger);
+
+		static void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
 		VulkanTutorial();
 
 		void run();
@@ -37,6 +43,7 @@ namespace qe
 		void initVulkan();
 		void createInstance();
 		void setupDebugMessenger();
+		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 		bool validateRequiredExtensions(const std::vector<const char*>& requiredExtensions);
 		bool checkValidationLayerSupport();
 		std::vector<const char*> getRequiredExtensions();
