@@ -7,9 +7,20 @@
 #include <GLFW/glfw3.h>
 
 #include <vector>
+#include <optional>
 
 namespace qe
 {
+	struct QueueFamilyIndices
+	{
+		std::optional<uint32> graphicsFamily;
+
+		bool isComplete()
+		{
+			return graphicsFamily.has_value();
+		}
+	};
+
 	class VulkanTutorial
 	{
 	public:
@@ -46,6 +57,12 @@ namespace qe
 		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 		bool validateRequiredExtensions(const std::vector<const char*>& requiredExtensions);
 		bool checkValidationLayerSupport();
+		void pickPhysicalDevice();
+		uint32 rateDeviceSuitability(VkPhysicalDevice device);
+		//bool isDeviceSuitable(VkPhysicalDevice device);
+		
+		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+
 		std::vector<const char*> getRequiredExtensions();
 
 		void mainLoop();

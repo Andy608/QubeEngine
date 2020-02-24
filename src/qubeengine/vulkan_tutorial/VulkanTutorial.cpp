@@ -1,6 +1,8 @@
 #include <qubeengine/vulkan_tutorial/VulkanTutorial.h>
 #include <stdexcept>
 #include <iostream>
+#include <map>
+#include <string>
 
 namespace qe
 {
@@ -68,6 +70,7 @@ namespace qe
 	{
 		createInstance();
 		setupDebugMessenger();
+		pickPhysicalDevice();
 	}
 
 	void VulkanTutorial::createInstance()
@@ -129,11 +132,11 @@ namespace qe
 
 		if (createDebugUtilsMessengerEXT(mVulkanInstance, &createInfo, nullptr, &mDebugMessenger) != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to set up debug messenger!");
+			throw std::runtime_error("Failed to set up debug messenger.");
 		}
 		else
 		{
-			std::cout << "Created DebugUtilsMessengerEXT" << std::endl;
+			std::cout << "Created DebugUtilsMessengerEXT!" << std::endl;
 		}
 	}
 
@@ -222,6 +225,120 @@ namespace qe
 		}
 
 		return success;
+	}
+
+	void VulkanTutorial::pickPhysicalDevice()
+	{
+		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		uint32 deviceCount = 0;
+		vkEnumeratePhysicalDevices(mVulkanInstance, &deviceCount, nullptr);
+
+		if (deviceCount == 0)
+			throw std::runtime_error("Failed to find GPUs with Vulkan Support.");
+
+		std::vector<VkPhysicalDevice> devices(deviceCount);
+		vkEnumeratePhysicalDevices(mVulkanInstance, &deviceCount, devices.data());
+
+		std::multimap<uint32, VkPhysicalDevice> candidates;
+
+		for (const auto& device : devices)
+		{
+			uint32 score = rateDeviceSuitability(device);
+			candidates.insert({ score, device });
+		}
+
+		if (candidates.rbegin()->first > 0)
+		{
+			physicalDevice = candidates.rbegin()->second;
+		}
+		else
+		{
+			throw std::runtime_error("Failed to find a suitable GPU.");
+		}
+
+		std::cout << std::to_string(devices.size()) << " devices found!" << std::endl;
+	}
+
+	uint32 VulkanTutorial::rateDeviceSuitability(VkPhysicalDevice device)
+	{
+		VkPhysicalDeviceProperties deviceProperties;
+		vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+		VkPhysicalDeviceFeatures deviceFeatures;
+		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+		uint32 score = 0;
+
+		//Discrete GPUs have a significant performance advantage.
+		if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		{
+			score += 1000;
+		}
+
+		//Maximum possible size of textures affects graphics quality
+		score += deviceProperties.limits.maxImageDimension2D;
+
+
+		//Example if app needed geometry shaders -> return 0 since
+		//the application wouldn't function without geometry shaders
+		if (!deviceFeatures.geometryShader)
+		{
+			return 0;
+		}
+
+		//If we don't have the required queue families, (in our case just graphics)
+		//then this gpu is not suitable for use
+		if (!findQueueFamilies(device).isComplete())
+		{
+			return 0;
+		}
+
+		return score;
+	}
+
+	//bool VulkanTutorial::isDeviceSuitable(VkPhysicalDevice device)
+	//{
+	//	VkPhysicalDeviceProperties deviceProperties;
+	//	vkGetPhysicalDeviceProperties(device, &deviceProperties);
+	//
+	//	VkPhysicalDeviceFeatures deviceFeatures;
+	//	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+	//
+	//	return true;
+	//}
+
+	QueueFamilyIndices VulkanTutorial::findQueueFamilies(VkPhysicalDevice device)
+	{
+		QueueFamilyIndices indices;
+		//Logic to find queue family indices to populate struct with
+
+		uint32 queueFamilyCount = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+		uint32 i = 0;
+		for (const auto& queueFamily : queueFamilies)
+		{
+			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+			{
+				indices.graphicsFamily = i;
+			}
+
+			if (indices.isComplete())
+			{
+				break;
+			}
+
+			++i;
+		}
+
+		//std::cout << std::boolalpha << graphicsFamily.has_value() << std::endl;//false
+		//graphicsFamily = 0;
+		//std::cout << std::boolalpha << graphicsFamily.has_value() << std::endl;//true
+
+		return indices;
 	}
 
 	std::vector<const char*> VulkanTutorial::getRequiredExtensions()
