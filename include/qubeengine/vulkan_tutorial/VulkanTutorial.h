@@ -41,6 +41,9 @@ namespace qe
 	private:
 		GLFWwindow* mpWindow;
 		VkInstance mVulkanInstance;
+		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
+		VkDevice mDevice;
+		VkQueue mGraphicsQueue;
 		VkDebugUtilsMessengerEXT mDebugMessenger;
 		const std::vector<const char*> mValidationLayers;
 
@@ -52,6 +55,7 @@ namespace qe
 
 		void initWindow();
 		void initVulkan();
+		void createLogicalDevice();
 		void createInstance();
 		void setupDebugMessenger();
 		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);

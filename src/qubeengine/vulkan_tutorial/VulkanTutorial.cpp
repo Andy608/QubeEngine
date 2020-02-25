@@ -71,6 +71,52 @@ namespace qe
 		createInstance();
 		setupDebugMessenger();
 		pickPhysicalDevice();
+		createLogicalDevice();
+	}
+
+	void VulkanTutorial::createLogicalDevice()
+	{
+		QueueFamilyIndices indices = findQueueFamilies(mPhysicalDevice);
+
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+		queueCreateInfo.queueCount = 1;
+
+		float queuePriority = 1.0f;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+
+		VkPhysicalDeviceFeatures deviceFeatures = {};
+		//Will add features we're gonna use here in the future.
+
+		VkDeviceCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		createInfo.pQueueCreateInfos = &queueCreateInfo;
+		createInfo.queueCreateInfoCount = 1;
+		createInfo.pEnabledFeatures = &deviceFeatures;
+		createInfo.enabledExtensionCount = 0;
+
+		if (ENABLE_VAL_LAYERS)
+		{
+			//Ignored in newer versions of Vulkan, but good to have for backwards compatability
+			createInfo.enabledLayerCount = static_cast<uint32>(mValidationLayers.size());
+			createInfo.ppEnabledLayerNames = mValidationLayers.data();
+		}
+		else
+		{
+			createInfo.enabledLayerCount = 0;
+		}
+
+		if (vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create the logical device.");
+		}
+		else
+		{
+			std::cout << "Successfully created logical device!" << std::endl;
+		}
+
+		vkGetDeviceQueue(mDevice, indices.graphicsFamily.value(), 0, &mGraphicsQueue);
 	}
 
 	void VulkanTutorial::createInstance()
@@ -229,7 +275,6 @@ namespace qe
 
 	void VulkanTutorial::pickPhysicalDevice()
 	{
-		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		uint32 deviceCount = 0;
 		vkEnumeratePhysicalDevices(mVulkanInstance, &deviceCount, nullptr);
 
@@ -249,7 +294,7 @@ namespace qe
 
 		if (candidates.rbegin()->first > 0)
 		{
-			physicalDevice = candidates.rbegin()->second;
+			mPhysicalDevice = candidates.rbegin()->second;
 		}
 		else
 		{
@@ -367,6 +412,8 @@ namespace qe
 
 	void VulkanTutorial::cleanup()
 	{
+		vkDestroyDevice(mDevice, nullptr);
+
 		if (ENABLE_VAL_LAYERS)
 			destroyDebugUtilsMessengerEXT(mVulkanInstance, mDebugMessenger, nullptr);
 
