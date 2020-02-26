@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 
 namespace qe
@@ -70,6 +71,7 @@ namespace qe
 	{
 		createInstance();
 		setupDebugMessenger();
+		createSurface();
 		pickPhysicalDevice();
 		createLogicalDevice();
 	}
@@ -78,21 +80,27 @@ namespace qe
 	{
 		QueueFamilyIndices indices = findQueueFamilies(mPhysicalDevice);
 
-		VkDeviceQueueCreateInfo queueCreateInfo = {};
-		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
-		queueCreateInfo.queueCount = 1;
+		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		std::set<uint32> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
 		float queuePriority = 1.0f;
-		queueCreateInfo.pQueuePriorities = &queuePriority;
+		for (uint32 queueFamily : uniqueQueueFamilies)
+		{
+			VkDeviceQueueCreateInfo queueCreateInfo = {};
+			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			queueCreateInfo.queueFamilyIndex = queueFamily;
+			queueCreateInfo.queueCount = 1;
+			queueCreateInfo.pQueuePriorities = &queuePriority;
+			queueCreateInfos.push_back(queueCreateInfo);
+		}
 
 		VkPhysicalDeviceFeatures deviceFeatures = {};
 		//Will add features we're gonna use here in the future.
 
 		VkDeviceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		createInfo.pQueueCreateInfos = &queueCreateInfo;
-		createInfo.queueCreateInfoCount = 1;
+		createInfo.queueCreateInfoCount = static_cast<uint32>(queueCreateInfos.size());
+		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.pEnabledFeatures = &deviceFeatures;
 		createInfo.enabledExtensionCount = 0;
 
@@ -117,6 +125,7 @@ namespace qe
 		}
 
 		vkGetDeviceQueue(mDevice, indices.graphicsFamily.value(), 0, &mGraphicsQueue);
+		vkGetDeviceQueue(mDevice, indices.presentFamily.value(), 0, &mPresentQueue);
 	}
 
 	void VulkanTutorial::createInstance()
@@ -167,6 +176,18 @@ namespace qe
 			throw std::runtime_error("Failed to create vulkan instance.");
 		else
 			std::cout << "Successfully initialized Vulkan!" << std::endl;
+	}
+
+	void VulkanTutorial::createSurface()
+	{
+		if (glfwCreateWindowSurface(mVulkanInstance, mpWindow, nullptr, &mSurface) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create window surface.");
+		}
+		else
+		{
+			std::cout << "Successfully created window surface!" << std::endl;
+		}
 	}
 
 	void VulkanTutorial::setupDebugMessenger()
@@ -371,6 +392,14 @@ namespace qe
 				indices.graphicsFamily = i;
 			}
 
+			VkBool32 presentSupport = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(device, i, mSurface, &presentSupport);
+
+			if (presentSupport)
+			{
+				indices.presentFamily = i;
+			}
+
 			if (indices.isComplete())
 			{
 				break;
@@ -417,7 +446,10 @@ namespace qe
 		if (ENABLE_VAL_LAYERS)
 			destroyDebugUtilsMessengerEXT(mVulkanInstance, mDebugMessenger, nullptr);
 
+		//Make sure the surface is destroyed before the instance.
+		vkDestroySurfaceKHR(mVulkanInstance, mSurface, nullptr);
 		vkDestroyInstance(mVulkanInstance, nullptr);
+
 		glfwDestroyWindow(mpWindow);
 		glfwTerminate();
 	}

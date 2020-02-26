@@ -14,10 +14,11 @@ namespace qe
 	struct QueueFamilyIndices
 	{
 		std::optional<uint32> graphicsFamily;
+		std::optional<uint32> presentFamily;
 
 		bool isComplete()
 		{
-			return graphicsFamily.has_value();
+			return graphicsFamily.has_value() && presentFamily.has_value();
 		}
 	};
 
@@ -43,7 +44,9 @@ namespace qe
 		VkInstance mVulkanInstance;
 		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
 		VkDevice mDevice;
+		VkSurfaceKHR mSurface;
 		VkQueue mGraphicsQueue;
+		VkQueue mPresentQueue;
 		VkDebugUtilsMessengerEXT mDebugMessenger;
 		const std::vector<const char*> mValidationLayers;
 
@@ -53,10 +56,12 @@ namespace qe
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 			void* pUserData);
 
+
 		void initWindow();
 		void initVulkan();
 		void createLogicalDevice();
 		void createInstance();
+		void createSurface();
 		void setupDebugMessenger();
 		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 		bool validateRequiredExtensions(const std::vector<const char*>& requiredExtensions);
@@ -64,9 +69,7 @@ namespace qe
 		void pickPhysicalDevice();
 		uint32 rateDeviceSuitability(VkPhysicalDevice device);
 		//bool isDeviceSuitable(VkPhysicalDevice device);
-		
 		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-
 		std::vector<const char*> getRequiredExtensions();
 
 		void mainLoop();
