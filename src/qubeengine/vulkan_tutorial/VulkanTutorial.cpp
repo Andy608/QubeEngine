@@ -1,5 +1,7 @@
 #include <qubeengine/vulkan_tutorial/VulkanTutorial.h>
 #include <stdexcept>
+#include <algorithm> //min and max functions
+#include <cstdint> //Necessary for UINT32_MAX
 #include <iostream>
 #include <map>
 #include <set>
@@ -47,7 +49,16 @@ namespace qe
 	VulkanTutorial::VulkanTutorial() :
 		mpWindow(nullptr),
 		mVulkanInstance(nullptr),
-		mValidationLayers(std::vector<const char*> { "VK_LAYER_KHRONOS_validation" })
+		mDebugMessenger(nullptr),
+		mDevice(nullptr),
+		mGraphicsQueue(nullptr),
+		mPresentQueue(nullptr),
+		mSurface(nullptr),
+		mValidationLayers(std::vector<const char*> { "VK_LAYER_KHRONOS_validation" }),
+		mDeviceExtensions(std::vector<const char*> { VK_KHR_SWAPCHAIN_EXTENSION_NAME }),
+		mSwapchain(nullptr),
+		mSwapchainImageFormat(),
+		mSwapchainExtent()
 	{}
 
 	void VulkanTutorial::run()
@@ -74,6 +85,7 @@ namespace qe
 		createSurface();
 		pickPhysicalDevice();
 		createLogicalDevice();
+		createSwapChain();
 	}
 
 	void VulkanTutorial::createLogicalDevice()
@@ -102,7 +114,9 @@ namespace qe
 		createInfo.queueCreateInfoCount = static_cast<uint32>(queueCreateInfos.size());
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.pEnabledFeatures = &deviceFeatures;
-		createInfo.enabledExtensionCount = 0;
+
+		createInfo.enabledExtensionCount = static_cast<uint32>(mDeviceExtensions.size());
+		createInfo.ppEnabledExtensionNames = mDeviceExtensions.data();
 
 		if (ENABLE_VAL_LAYERS)
 		{
@@ -151,7 +165,7 @@ namespace qe
 		createInfo.enabledExtensionCount = static_cast<uint32>(requiredExtensions.size());
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
-		if (ENABLE_VAL_LAYERS && !validateRequiredExtensions(requiredExtensions))
+		if (ENABLE_VAL_LAYERS && !validateRequiredInstanceExtensionSupport(requiredExtensions))
 			throw std::runtime_error("Failed to load requried glfw extensions.");
 		else
 			std::cout << "Successfully loaded required glfw extensions!" << std::endl;
@@ -203,7 +217,7 @@ namespace qe
 		}
 		else
 		{
-			std::cout << "Created DebugUtilsMessengerEXT!" << std::endl;
+			std::cout << "Successfully created DebugUtilsMessengerEXT!" << std::endl;
 		}
 	}
 
@@ -225,7 +239,7 @@ namespace qe
 		createInfo.pUserData = nullptr;
 	}
 
-	bool VulkanTutorial::validateRequiredExtensions(const std::vector<const char*>& requiredExtensions)
+	bool VulkanTutorial::validateRequiredInstanceExtensionSupport(const std::vector<const char*>& requiredExtensions)
 	{
 		bool success = true;
 		uint32 extensionCount = 0;
@@ -344,7 +358,6 @@ namespace qe
 		//Maximum possible size of textures affects graphics quality
 		score += deviceProperties.limits.maxImageDimension2D;
 
-
 		//Example if app needed geometry shaders -> return 0 since
 		//the application wouldn't function without geometry shaders
 		if (!deviceFeatures.geometryShader)
@@ -359,7 +372,38 @@ namespace qe
 			return 0;
 		}
 
+		//This device doesn't have support for extensions that we want to uses
+		if (!validateRequiredDeviceExtensionSupport(device))
+		{
+			return 0;
+		}
+
+		//Make sure this device supports at least one image format
+		SwapChainSupportDetails swapChainSupport = querySwapchainSupport(device);
+		if (swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty())
+		{
+			return 0;
+		}
+
+
 		return score;
+	}
+
+	bool VulkanTutorial::validateRequiredDeviceExtensionSupport(VkPhysicalDevice device)
+	{
+		uint32 extensionCount;
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+		std::set<std::string> requiredExtensions(mDeviceExtensions.begin(), mDeviceExtensions.end());
+
+		for (const auto& extension : availableExtensions)
+		{
+			requiredExtensions.erase(extension.extensionName);
+		}
+
+		return requiredExtensions.empty();
 	}
 
 	//bool VulkanTutorial::isDeviceSuitable(VkPhysicalDevice device)
@@ -431,6 +475,170 @@ namespace qe
 		return extensions;
 	}
 
+	SwapChainSupportDetails VulkanTutorial::querySwapchainSupport(VkPhysicalDevice device)
+	{
+		SwapChainSupportDetails details;
+
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, mSurface, &details.capabilities);
+
+		uint32 formatCount;
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, &formatCount, nullptr);
+
+		if (formatCount != 0)
+		{
+			details.formats.resize(formatCount);
+			vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, &formatCount, details.formats.data());
+		}
+
+		uint32 presentModeCount;
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, &presentModeCount, nullptr);
+
+		if (presentModeCount != 0)
+		{
+			details.presentModes.resize(presentModeCount);
+			vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, &presentModeCount, details.presentModes.data());
+		}
+
+		return details;
+	}
+
+	VkSurfaceFormatKHR VulkanTutorial::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+	{
+		for (const auto& availableFormat : availableFormats)
+		{
+			if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			{
+				return availableFormat;
+			}
+		}
+
+		//If we don't find what we're looking for, just settle on the first format.
+		return availableFormats[0];
+	}
+
+	VkPresentModeKHR VulkanTutorial::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+	{
+		for (const auto& availablePresentMode : availablePresentModes)
+		{
+			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+			{
+				return availablePresentMode;
+			}
+		}
+
+		//If triple buffering is not supported, just use first in first out buffering.
+		//Most similar to modern day vsync.
+		return VK_PRESENT_MODE_FIFO_KHR;
+	}
+
+	VkExtent2D VulkanTutorial::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+	{
+		if (capabilities.currentExtent.width != UINT32_MAX)
+		{
+			return capabilities.currentExtent;
+		}
+		else
+		{
+			VkExtent2D actualExtent = { WINDOW_WIDTH, WINDOW_HEIGHT };
+			//actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
+			//actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
+			actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+			actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+			
+			return actualExtent;
+		}
+	}
+
+	void VulkanTutorial::createSwapChain()
+	{
+		SwapChainSupportDetails swapChainSupport = querySwapchainSupport(mPhysicalDevice);
+		VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+		VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+		VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+		uint32 imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
+		if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
+		{
+			imageCount = swapChainSupport.capabilities.maxImageCount;
+		}
+
+		VkSwapchainCreateInfoKHR createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+		createInfo.surface = mSurface;
+		createInfo.minImageCount = imageCount;
+		createInfo.imageFormat = surfaceFormat.format;
+		createInfo.imageColorSpace = surfaceFormat.colorSpace;
+		createInfo.imageExtent = extent;
+		createInfo.imageArrayLayers = 1;//Always 1 unless developing a stereoscopic 3D application
+		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+		QueueFamilyIndices indices = findQueueFamilies(mPhysicalDevice);
+		uint32 queueFamilyIndices[]{ indices.graphicsFamily.value(), indices.presentFamily.value() };
+
+		if (indices.graphicsFamily != indices.presentFamily)
+		{
+			//CONCURRENT - Images can be used across multiple queue families 
+			//without explicit ownership transfers.
+			//Concurrent mode requires at least 2 different queue families.
+			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+			createInfo.queueFamilyIndexCount = 2;
+			createInfo.pQueueFamilyIndices = queueFamilyIndices;
+		}
+		else
+		{
+			//EXCLUSIVE - An image is owned by one queue family at a time 
+			//and ownership must be explicitly transfered before using it in 
+			//another queue family. This option offers the best performance.
+			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			createInfo.queueFamilyIndexCount = 0;
+			createInfo.pQueueFamilyIndices = nullptr;
+		}
+
+		//We can specify that a certain transform should be applied to images in 
+		//the swap chain if it is supported (supportedTransforms in capabilities), 
+		//like a 90 degree clockwise rotation or horizontal flip. To specify that 
+		//you do not want any transformation, simply specify the current t
+		//ransformation.
+		createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+		//The compositeAlpha field specifies if the alpha channel should be used 
+		//for blending with other windows in the window system. You'll almost 
+		//always want to simply ignore the alpha channel, hence 
+		//VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR.
+		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		//The presentMode member speaks for itself. If the clipped member is set 
+		//to VK_TRUE then that means that we don't care about the color of pixels 
+		//that are obscured, for example because another window is in front of 
+		//them. Unless you really need to be able to read these pixels back and 
+		//get predictable results, you'll get the best performance by enabling 
+		//clipping.
+		createInfo.presentMode = presentMode;
+		createInfo.clipped = VK_TRUE;
+		//With Vulkan it's possible that your swap chain becomes invalid or 
+		//unoptimized while your application is running, for example because 
+		//the window was resized. In that case the swap chain actually needs to 
+		//be recreated from scratch and a reference to the old one must be 
+		//specified in this field. For now, we'll assume that we'll only ever
+		//create one swap chain.
+		createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+		if (vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapchain) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create swapchain.");
+		}
+		else
+		{
+			std::cout << "Successfully created swapchain!" << std::endl;
+		}
+
+		vkGetSwapchainImagesKHR(mDevice, mSwapchain, &imageCount, nullptr);
+		mSwapchainImages.resize(imageCount);
+		vkGetSwapchainImagesKHR(mDevice, mSwapchain, &imageCount, mSwapchainImages.data());
+		
+		mSwapchainImageFormat = surfaceFormat.format;
+		mSwapchainExtent = extent;
+	}
+
 	void VulkanTutorial::mainLoop()
 	{
 		while (!glfwWindowShouldClose(mpWindow))
@@ -441,6 +649,7 @@ namespace qe
 
 	void VulkanTutorial::cleanup()
 	{
+		vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
 		vkDestroyDevice(mDevice, nullptr);
 
 		if (ENABLE_VAL_LAYERS)

@@ -22,6 +22,13 @@ namespace qe
 		}
 	};
 
+	struct SwapChainSupportDetails
+	{
+		VkSurfaceCapabilitiesKHR capabilities;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> presentModes;
+	};
+
 	class VulkanTutorial
 	{
 	public:
@@ -48,7 +55,12 @@ namespace qe
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
 		VkDebugUtilsMessengerEXT mDebugMessenger;
+		const std::vector<const char*> mDeviceExtensions;
 		const std::vector<const char*> mValidationLayers;
+		VkSwapchainKHR mSwapchain;
+		std::vector<VkImage> mSwapchainImages;
+		VkFormat mSwapchainImageFormat;
+		VkExtent2D mSwapchainExtent;
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -56,24 +68,38 @@ namespace qe
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 			void* pUserData);
 
-
+		//Tutorial 1: Instance Creation
 		void initWindow();
 		void initVulkan();
-		void createLogicalDevice();
 		void createInstance();
-		void createSurface();
-		void setupDebugMessenger();
-		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-		bool validateRequiredExtensions(const std::vector<const char*>& requiredExtensions);
-		bool checkValidationLayerSupport();
-		void pickPhysicalDevice();
-		uint32 rateDeviceSuitability(VkPhysicalDevice device);
-		//bool isDeviceSuitable(VkPhysicalDevice device);
-		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-		std::vector<const char*> getRequiredExtensions();
-
+		bool validateRequiredInstanceExtensionSupport(const std::vector<const char*>& requiredExtensions);
 		void mainLoop();
 		void cleanup();
+
+		//Tutorial 2: Validation Layers
+		void setupDebugMessenger();
+		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+		std::vector<const char*> getRequiredExtensions();
+		bool checkValidationLayerSupport();
+		
+		//Tutorial 3: Physical Devices
+		void pickPhysicalDevice();
+		uint32 rateDeviceSuitability(VkPhysicalDevice device);
+		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+
+		//Tutorial 4: Locail Devices
+		void createLogicalDevice();
+
+		//Tutorial 5: Window Surface
+		void createSurface();
+
+		//Tutorial 6: Swapchains
+		bool validateRequiredDeviceExtensionSupport(VkPhysicalDevice device);
+		SwapChainSupportDetails querySwapchainSupport(VkPhysicalDevice device);
+		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+		void createSwapChain();
 	};
 }
 
