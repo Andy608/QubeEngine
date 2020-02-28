@@ -47,20 +47,21 @@ namespace qe
 		void run();
 
 	private:
-		GLFWwindow* mpWindow;
-		VkInstance mVulkanInstance;
+		GLFWwindow* mpWindow = nullptr;
+		VkInstance mVulkanInstance = nullptr;
 		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-		VkDevice mDevice;
-		VkSurfaceKHR mSurface;
-		VkQueue mGraphicsQueue;
-		VkQueue mPresentQueue;
-		VkDebugUtilsMessengerEXT mDebugMessenger;
+		VkDevice mDevice = nullptr;
+		VkSurfaceKHR mSurface = nullptr;
+		VkQueue mGraphicsQueue = nullptr;
+		VkQueue mPresentQueue = nullptr;
+		VkDebugUtilsMessengerEXT mDebugMessenger = nullptr;
 		const std::vector<const char*> mDeviceExtensions;
 		const std::vector<const char*> mValidationLayers;
-		VkSwapchainKHR mSwapchain;
-		std::vector<VkImage> mSwapchainImages;
-		VkFormat mSwapchainImageFormat;
-		VkExtent2D mSwapchainExtent;
+		VkSwapchainKHR mSwapchain = nullptr;
+		std::vector<VkImage> mSwapchainImages = {};
+		VkFormat mSwapchainImageFormat = VK_FORMAT_UNDEFINED;
+		VkExtent2D mSwapchainExtent = {};
+		std::vector<VkImageView> mSwapchainImageViews;
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -100,6 +101,9 @@ namespace qe
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		void createSwapChain();
+
+		//Tutorial 7: Image Views
+		void createImageViews();
 	};
 }
 
