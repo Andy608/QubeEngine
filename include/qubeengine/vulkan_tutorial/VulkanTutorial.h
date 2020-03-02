@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <optional>
+#include <string>
 
 namespace qe
 {
@@ -62,6 +63,21 @@ namespace qe
 		VkFormat mSwapchainImageFormat = VK_FORMAT_UNDEFINED;
 		VkExtent2D mSwapchainExtent = {};
 		std::vector<VkImageView> mSwapchainImageViews;
+		VkRenderPass mRenderPass;
+		VkPipelineLayout mPipelineLayout;
+		VkPipeline mGraphicsPipeline;
+		std::vector<VkFramebuffer> mSwapchainFramebuffers;
+		VkCommandPool mCommandPool;
+		std::vector<VkCommandBuffer> mCommandBuffers;
+		//VkSemaphore mImageAvailableSemaphore;
+		//VkSemaphore mRenderFinishedSemaphore;
+		const int mMAX_FRAMES_IN_FLIGHT = 2;
+		std::vector<VkSemaphore> mImageAvailableSemaphores;
+		std::vector<VkSemaphore> mRenderFinishedSemaphores;
+		std::vector<VkFence> mInFlightFences;
+		std::vector<VkFence> mImagesInFlight;
+		std::size_t mCurrentFrame = 0;
+
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -69,41 +85,71 @@ namespace qe
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 			void* pUserData);
 
-		//Tutorial 1: Instance Creation
-		void initWindow();
-		void initVulkan();
-		void createInstance();
-		bool validateRequiredInstanceExtensionSupport(const std::vector<const char*>& requiredExtensions);
-		void mainLoop();
-		void cleanup();
+		///https://vulkan-tutorial.com/
+		///Section 1 - Setup
 
-		//Tutorial 2: Validation Layers
-		void setupDebugMessenger();
-		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-		std::vector<const char*> getRequiredExtensions();
+		//Tutorial 2: Instance Creation
+		void cleanup();
+		void createInstance();
+		void initVulkan();
+		void initWindow();
+		void mainLoop();
+		bool validateRequiredInstanceExtensionSupport(const std::vector<const char*>& requiredExtensions);
+
+		//Tutorial 3: Validation Layers
 		bool checkValidationLayerSupport();
+		std::vector<const char*> getRequiredExtensions();
+		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+		void setupDebugMessenger();
 		
-		//Tutorial 3: Physical Devices
+		//Tutorial 4: Physical Devices and Queue Families
+		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 		void pickPhysicalDevice();
 		uint32 rateDeviceSuitability(VkPhysicalDevice device);
-		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
-		//Tutorial 4: Locail Devices
+		//Tutorial 5: Logical Devices and Queues
 		void createLogicalDevice();
 
-		//Tutorial 5: Window Surface
+		///Section 2 - Presentation
+
+		//Tutorial 6: Window Surface
 		void createSurface();
 
-		//Tutorial 6: Swapchains
-		bool validateRequiredDeviceExtensionSupport(VkPhysicalDevice device);
-		SwapChainSupportDetails querySwapchainSupport(VkPhysicalDevice device);
-		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+		//Tutorial 7: Swapchains
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		void createSwapChain();
+		SwapChainSupportDetails querySwapchainSupport(VkPhysicalDevice device);
+		bool validateRequiredDeviceExtensionSupport(VkPhysicalDevice device);
 
-		//Tutorial 7: Image Views
+		//Tutorial 8: Image Views
 		void createImageViews();
+
+		///Section 3 - Setup
+		
+		//Tutorial 9: Introduction
+		void createGraphicsPipeline();
+
+		//Tutorial 10: Shader Modules
+		static std::vector<char> readFile(const std::string& fileName);
+		VkShaderModule createShaderModule(const std::vector<char>& code);
+
+		//Tutorial 11: Render Passes
+		void createRenderPass();
+
+		///Section 4 - Drawing
+
+		//Tutorial 13: Framebuffers
+		void createFramebuffers();
+
+		//Tutorial 14: Command Buffers
+		void createCommandPool();
+		void createCommandBuffers();
+
+		//Tutorial 15: Rendering and Presentation
+		void drawFrame();
+		void createSyncObjects();
 	};
 }
 
