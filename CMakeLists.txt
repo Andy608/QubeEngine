@@ -45,7 +45,8 @@ target_link_libraries(QubeEngine PRIVATE glfw)
 target_link_libraries(QubeEngine PRIVATE ${QUBEENGINE_LIBS})
 
 if (NOT QUBEENGINE_MASTER_PROJECT)
-    # This project is included from somewhere else. Export QUBEENGINE_EXTRA_LIBS variable
+    # This project is included from somewhere else. 
+    # Export QUBEENGINE_EXTRA_LIBS variable
     set(QUBEENGINE_EXTRA_INCS ${QUBEENGINE_INCS} PARENT_SCOPE)
     set(QUBEENGINE_EXTRA_DEFS ${QUBEENGINE_DEFS} PARENT_SCOPE)
     set(QUBEENGINE_EXTRA_LIBS ${QUBEENGINE_LIBS} PARENT_SCOPE)
