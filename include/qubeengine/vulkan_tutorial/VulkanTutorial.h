@@ -7,8 +7,12 @@
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 
 #include <chrono>
 #include <vector>
@@ -27,8 +31,9 @@ namespace qe
 
 	struct Vertex
 	{
-		glm::vec2 pos;
+		glm::vec3 pos;
 		glm::vec3 color;
+		glm::vec2 texCoord;
 
 		//A vertex binding describes at which rate to load data from memory throughout the vertices.
 		//It specifies the number of bytes between data entriesand whether to move to the next data entry after 
@@ -46,12 +51,12 @@ namespace qe
 		//An attribute description struct describes how to extract a vertex attribute from a chunk of vertex data 
 		//originating from a binding description. We have two attributes, position and color, so we need two attribute 
 		//description structs.
-		static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
+		static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
 		{
-			std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+			std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
 			attributeDescriptions[0].binding = 0;
 			attributeDescriptions[0].location = 0;
-			attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 			attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
 			attributeDescriptions[1].binding = 0;
@@ -59,7 +64,17 @@ namespace qe
 			attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 			attributeDescriptions[1].offset = offsetof(Vertex, color);
 
+			attributeDescriptions[2].binding = 0;
+			attributeDescriptions[2].location = 2;
+			attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+
 			return attributeDescriptions;
+		}
+
+		bool operator==(const Vertex& other) const 
+		{
+			return pos == other.pos && color == other.color && texCoord == other.texCoord;
 		}
 	};
 
@@ -137,18 +152,12 @@ namespace qe
 		std::size_t mCurrentFrame = 0;
 		
 		bool mFramebufferResized = false;
+		std::string modelPath;
+		std::string texturePath;
+		const std::string RES_FILE = "../../../../res/resource_locations.txt";
 
-		const std::vector<Vertex> mVertices = {
-			{{ -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }},
-			{{  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }},
-			{{  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }},
-			{{ -0.5f,  0.5f }, { 1.0f, 1.0f, 1.0f }}
-		};
-
-		const std::vector<uint16_t> mIndices = {
-			0, 1, 2, 2, 3, 0
-		};
-
+		std::vector<Vertex> mVertices;
+		std::vector<uint32_t> mIndices;
 		VkBuffer mVertexBuffer;
 		VkDeviceMemory mVertexBufferMemory;
 
@@ -160,6 +169,17 @@ namespace qe
 
 		VkDescriptorPool mDescriptorPool;
 		std::vector<VkDescriptorSet> mDescriptorSets;
+
+		VkImage mTextureImage;
+		VkDeviceMemory mTextureImageMemory;
+		VkImageView mTextureImageView;
+		VkSampler mTextureSampler;
+
+		VkImage mDepthImage;
+		VkDeviceMemory mDepthImageMemory;
+		VkImageView mDepthImageView;
+
+		glm::vec3 mCameraPosition = glm::vec3(3.0f, 3.0f, 2.5f);
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -238,6 +258,8 @@ namespace qe
 		void cleanupSwapchain();
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
+		///Section 5 - Vertex Buffers
+
 		//Tutorial 18: Vertex Buffer Creation
 		void createVertexBuffer();
 		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -249,6 +271,8 @@ namespace qe
 		//Tutorial 20: Index Buffer
 		void createIndexBuffer();
 
+		///Section 6 - Uniform Buffers
+
 		//Tutorial 21: Descriptor Layout and Buffer
 		void createDescriptorSetLayout();
 		void createUniformBuffers();
@@ -257,6 +281,47 @@ namespace qe
 		//Tutorial 22: Descriptor Pool and Sets
 		void createDescriptorPool();
 		void createDescriptorSets();
+
+		///Section 7 - Texture Mapping
+
+		//Tutorial 23: Images
+		void createTextureImage();
+		void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+		VkCommandBuffer beginSingleTimeCommands();
+		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+	
+		//Tutorial 24: Image View and Sampler
+		void createTextureImageView();
+		VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+		void createTextureSampler();
+
+		///Section 8 - Depth Buffering
+		void createDepthResources();
+		VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+		VkFormat findDepthFormat();
+		bool hasStencilComponent(VkFormat format);
+
+		///Section 9 - Loading Models
+		void loadModel();
+		void initResPaths();
+
+		void processInput(GLFWwindow* window, float deltaTime);
+	};
+}
+
+namespace std
+{
+	//We need to create a hash function for our custom Vertex struct so we can use it in maps.
+	template<> struct hash<qe::Vertex> 
+	{
+		size_t operator()(qe::Vertex const& vertex) const 
+		{
+			return ((hash<glm::vec3>()(vertex.pos) ^
+				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+				(hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
 	};
 }
 
